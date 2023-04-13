@@ -1,0 +1,53 @@
+---
+
+- hosts: all
+  become: true
+  pre_tasks:
+
+  - name: Installing updates in Ubuntu
+    tags: always
+    apt:
+      upgrade: dist
+      update_cache: yes
+    when: ansible_distribution == "Ubuntu"
+
+- name: Creating a Certificate Authority with SSL
+  hosts: all
+  become: true
+
+  tasks:
+
+    - name: Installing OpenSSL
+      apt:
+        name: openssl
+        state: present
+
+    - name: Generating CA key
+      openssl_privatekey:
+        path: /etc/ssl/private/ca.key
+        size: 4096
+      register: ca_key
+
+    - name: Generating CA Certificate
+      openssl_csr:
+        path: /etc/ssl/certs/ca.csr
+        privatekey_path: /etc/ssl/private/ca.key
+        common_name: "CA with SSL"
+        country_name: "PH"
+        state_or_province_name: "Metro Manila"
+        locality_name: "Quezon City"
+        email_address: "qdmbolivar@tip.edu.ph"
+      register: ca_csr
+
+    - name: Self assign the CA Certificate
+      openssl_certificate:
+        path: /etc/ssl/certs/ca.crt
+        privatekey_path: /etc/ssl/private/ca.key
+        csr_path: /etc/ssl/certs/ca.csr
+        provider: selfsigned
+        force: true
+
+    - name: Copying the CA Certificate to Clients
+      copy:
+        src: /etc/ssl/certs/ca-certificates.crt
+        dest: /etc/pki/ca-trust/source/anchors/
